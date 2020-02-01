@@ -1,6 +1,4 @@
 name: ls
-channels:
-  - defaults
 dependencies:
   - _libgcc_mutex=0.1=main
   - astroid=2.3.3=py38_0
@@ -28,5 +26,3 @@ dependencies:
   - wrapt=1.11.2=py38h7b6447c_0
   - xz=5.2.4=h14c3975_4
   - zlib=1.2.11=h7b6447c_3
-prefix: /home/marcelo/anaconda3/envs/ls
-
