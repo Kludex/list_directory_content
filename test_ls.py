@@ -1,105 +1,186 @@
 #!/usr/bin/env python
 
-from ls import ListDirectoryContent
-from mock_ls import MockListDirectoryContent as Mock
-
-from datetime import datetime
 import unittest
-import stat
 import os
 
-class TestListDirectoryContent(unittest.TestCase):
-    WRONG_OPT = '-p'
+from option import Option
+from ls import ListDirectory
+from mock_ls import MockListDirectory as Mock
 
-    def create_result(self, tmp_filenames, mock=None, wrong_opt=False):
-        if wrong_opt:
-            return ""
-        result = ''
-        for filename in tmp_filenames:
-            if mock:
-                file_info = os.lstat(os.path.join(mock.tmp_dir, filename))
-                date = str(datetime.fromtimestamp(file_info.st_ctime).replace(microsecond=0))
-                mode = stat.filemode(file_info.st_mode)
-                result += mode + ' ' + date + ' '
-            result += filename + '\n'
-        return result
+class TestListDirectory(unittest.TestCase):
+    """
+    TestCase for ListDirectory.
+    """
 
-    def test_list_all_files(self):
-        tmp_filenames = ['a', 'b']
-        mock = Mock(tmp_filenames)
-        
-        ls = ListDirectoryContent(mock.argv)
-        self.assertMultiLineEqual(ls.get_displayable_files(),
-                                  self.create_result(tmp_filenames))
+    def test_default(self):
+        """
+        Tests default command.
 
-    def test_list_all_hidden_files(self):
-        tmp_filenames = ['a', 'b', '.c']
-        mock = Mock(tmp_filenames)
-        
-        ls = ListDirectoryContent(mock.argv)
-        self.assertMultiLineEqual(ls.get_displayable_files(), 
-                                  self.create_result(tmp_filenames[:-1]))
+        Files:
+            /test/a
+            /test/b
+        Run:
+            ls.py /test/
+        Result:
+            a
+            b
+        """
+        filenames = ['a', 'b']
+        mock = Mock(filenames)
 
-    def test_without_folder_name(self):
-        tmp_filenames = ['a', 'b']
-        mock = Mock(tmp_filenames, has_folder=False)
+        command = ListDirectory(mock.args())
+        result = list(command.files_list())
+        expect = mock.result_list()
 
-        os.chdir(mock.tmp_dir)
-        
-        ls = ListDirectoryContent(mock.argv)
-        self.assertMultiLineEqual(ls.get_displayable_files(), 
-                                  self.create_result(tmp_filenames))
+        self.assertCountEqual(expect, result)
 
-    def test_wrong_folder_name(self):
-        tmp_filenames = ['a', 'b']
-        mock = Mock(tmp_filenames, valid_folder=False)
-        
-        print(mock.argv)
-        ls = ListDirectoryContent(mock.argv)
-        ls.display_files()
-        self.assertMultiLineEqual(ls.get_displayable_files(),
-                                  self.create_result(tmp_filenames))
+    def test_hidden_files(self):
+        """
+        Tests with hidden files.
 
-    @unittest.skip
-    def test_more_than_one_folder_name(self):
-        pass
+        Files:
+            /test/a
+            /test/b
+            /test/.c
+        Run:
+            ls.py /test/
+        Result:
+            a
+            b
+            .c
+        """
+        filenames = ['a', 'b', '.c']
+        mock = Mock(filenames)
 
-    def test_list_prefix(self):
-        tmp_filenames = ['aa', 'ab', 'bb']
-        mock = Mock(tmp_filenames, prefix='a')
+        command = ListDirectory(mock.args())
+        result = list(command.files_list())
+        expect = mock.result_list()
 
-        os.chdir(mock.tmp_dir)
-        
-        ls = ListDirectoryContent(mock.argv)
-        self.assertMultiLineEqual(ls.get_displayable_files(), 
-                                  self.create_result(tmp_filenames[:-1]))
+        self.assertCountEqual(expect, result)
 
-    def test_list_wrong_prefix(self):
-        tmp_filenames = ['aa', 'ab', 'bb']
-        mock = Mock(tmp_filenames, prefix='j')
+    def test_miss_folder(self):
+        """
+        Tests with folder name missing.
 
-        os.chdir(mock.tmp_dir)
-        
-        ls = ListDirectoryContent(mock.argv)
-        self.assertMultiLineEqual(ls.get_displayable_files(), 
-                                  self.create_result([]))
+        Files:
+            /test/a
+            /test/b
+        Run:
+            cd /test/
+            ls.py
+        Result:
+            a
+            b
+        """
+        filenames = ['a', 'b']
+        mock = Mock(filenames, {'miss_folder'})
+
+        os.chdir(mock.folder)
+
+        command = ListDirectory(mock.args())
+        result = list(command.files_list())
+        expect = mock.result_list()
+
+        self.assertCountEqual(expect, result)
+
+    def test_wrong_folder(self):
+        """
+        Tests with wrong folder name.
+
+        Files:
+            /test/a
+            /test/b
+        Run:
+            ls.py /test/wrong/
+        Result:
+            raise Exception
+        """
+        filenames = ['a', 'b']
+        mock = Mock(filenames)
+
+        with self.assertRaises(Exception):
+            ListDirectory.folder_from(mock.wrong_folder())
+
+    def test_prefix(self):
+        """
+        Tests with prefix filename.
+
+        Files:
+            /test/aa
+            /test/ab
+            /test/bb
+        Run:
+            ls.py /test/a
+        Result:
+            aa
+            ab
+        """
+        filenames = ['aa', 'ab', 'bb']
+        mock = Mock(filenames, {'prefix'})
+
+        command = ListDirectory(mock.args())
+        result = list(command.files_list())
+        expect = mock.result_list()
+
+        self.assertCountEqual(expect, result)
+
+    def test_wrong_prefix(self):
+        """
+        Tests with wrong prefix filename.
+
+        Files:
+            /test/a
+            /test/b
+        Run:
+            ls.py /test/c
+        Result:
+
+        """
+        filenames = ['aa', 'ab', 'bb']
+        mock = Mock(filenames, {'wrong_prefix'})
+
+        command = ListDirectory(mock.args())
+        result = list(command.files_list())
+        expect = mock.result_list()
+
+        self.assertCountEqual(expect, result)
 
     def test_long_list_option(self):
-        tmp_filenames = ['a', 'b']
-        mock = Mock(tmp_filenames, opt='-l')
-        
-        ls = ListDirectoryContent(mock.argv)
-        self.assertMultiLineEqual(ls.get_displayable_files(),
-                                  self.create_result(tmp_filenames, mock))
+        """
+        Tests with long list option.
 
-    # maybe change this one
-    def test_wrong_options(self):
-        tmp_filenames = ['a', 'b']
-        mock = Mock(tmp_filenames)
-        
-        ls = ListDirectoryContent(mock.argv)
-        self.assertMultiLineEqual(ls.get_displayable_files(),
-                                  self.create_result(tmp_filenames))
+        Files:
+            /test/a
+            /test/b
+        Run:
+            ls.py -l /test/
+        Result:
+            -rw-rw-r--  2020-02-01 18:47:00 a
+            -rwxr-xr-x  2020-02-01 19:18:06 b
+        """
+        filenames = ['a', 'b']
+        mock = Mock(filenames, {'long_list'})
+
+        command = ListDirectory(mock.args())
+        result = list(command.files_list())
+        expect = mock.result_list()
+
+        self.assertCountEqual(expect, result)
+
+    def test_wrong_option(self):
+        """
+        Tests with wrong option.
+
+        Files:
+            /test/a
+            /test/b
+        Run:
+            ls.py -p /test/
+        Result:
+            raise Exception
+        """
+        with self.assertRaises(Exception):
+            Option(Mock.wrong_option())
 
 if __name__ == '__main__':
     unittest.main()

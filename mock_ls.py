@@ -1,42 +1,132 @@
 
 import tempfile
+import stat
 import os
+from datetime import datetime
 
-class MockListDirectoryContent():
+class MockListDirectory():
+    """
+    Mock class to help on the test development process.
+    """
 
     @property
-    def tmp_dir(self):
-        return self._tmp_dir
+    def filenames(self):
+        """
+        Get filenames.
+        """
+        return self._filenames
 
     @property
-    def argv(self):
-        return self._argv
+    def folder(self):
+        """
+        Get folder.
+        """
+        return self._folder
 
-    def __init__(self, tmp_filenames, opt='', has_folder=True, prefix='', valid_folder=True):
-        self._tmp_dir = self.create_folder()
-        self._argv = self.create_argv(opt, has_folder, prefix, valid_folder)
-        self.create_files(tmp_filenames)
-    
-    def __del__(self):
-        for tmp_filename in os.listdir(self.tmp_dir):
-            os.remove(os.path.join(self.tmp_dir, tmp_filename))
-        os.rmdir(self.tmp_dir)
+    @property
+    def info(self):
+        """
+        Get info.
+        """
+        return self._info
 
-    def create_folder(self):
-        return tempfile.mkdtemp()
+    @staticmethod
+    def wrong_option():
+        """
+        Generates a wrong option command.
 
-    def create_files(self, tmp_filenames):
-        for tmp_filename in tmp_filenames:
-            open(os.path.join(self.tmp_dir, tmp_filename), 'a').close()
+        Returns:
+            str: wrong option command.
+        """
+        return '-1'
 
-    def create_argv(self, opt, has_folder, prefix, valid_folder):
-        argv = ['ls.py']
-        if opt:
-            argv.append(opt)
-        if has_folder:
-            prt = self.tmp_dir if valid_folder else self.tmp_dir[:-2] + '/'
-            print("KK" if valid_folder else prt)
-            argv.append(prt)
-        if prefix:
-            argv[-1] = argv[-1] + '/' + prefix
+    def wrong_folder(self):
+        """
+        Generates a wrong folder path.
+
+        Returns:
+            str: wrong folder path.
+        """
+        return os.path.join(self.folder, 'wrong/')
+
+    def args(self):
+        """
+        Generates argument list to create a ListDirectory object.
+
+        Returns:
+            list: arguments used to create a ListDirectory
+        """
+        argv = []
+        argv.append('ls.py')
+        if 'miss_folder' in self.info:
+            return argv
+        if 'prefix' in self.info:
+            argv.append(os.path.join(self.folder, 'a'))
+        elif 'wrong_prefix' in self.info:
+            argv.append(os.path.join(self.folder, 'c'))
+        else:
+            if 'long_list' in self.info:
+                argv.append('-l')
+            argv.append(self.folder)
         return argv
+
+    def result_list(self):
+        """
+        Generates a list of expected results to use for testing purposes.
+
+        Returns:
+            list: expected results.
+        """
+        results = []
+        if 'wrong_prefix' in self.info:
+            return results
+        for filename in self.filenames:
+            file = ""
+            if 'long_list' in self.info:
+                file_stat = os.lstat(filename)
+                file += stat.filemode(file_stat.st_mode) + '  '
+                file += str(datetime.fromtimestamp(file_stat.st_ctime).replace(microsecond=0)) + ' '
+            file += filename.split('/')[-1]
+            if 'prefix' in self.info:
+                if file.startswith('a'):
+                    results.append(file)
+            else:
+                results.append(file)
+        return results
+
+    def __init__(self, filenames, info=set()):
+        """
+        The constructor for MockListDirectory class.
+
+        Parameters:
+            filenames (list): filenames.
+            info (set): describe the type of command. Defaults to set().
+        """
+        self._folder = tempfile.mkdtemp()
+        self._filenames = self.create_files(filenames)
+        self._info = info
+
+    def __del__(self):
+        """
+        The destructor for MockListDirectory class. Deletes all temporary files.
+        """
+        for filename in self.filenames:
+            os.remove(filename)
+        os.rmdir(self.folder)
+
+    def create_files(self, filenames):
+        """
+        Create files based on their filenames.
+
+        Parameters:
+            filenames (list): list of filenames.
+
+        Returns:
+            list: absolute file path.
+        """
+        paths = []
+        for filename in filenames:
+            path = os.path.join(self.folder, filename)
+            open(path, 'a').close()
+            paths.append(path)
+        return paths
