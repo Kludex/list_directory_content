@@ -42,7 +42,24 @@ class Option():
         Parameters:
             option (str): selected option. Defaults to empty string.
         """
-        self._format = self.OPTIONS[option]
+        self._format = self.format_from(option)
+
+    def format_from(self, option: str) -> types.FunctionType:
+        """
+        Gets a format function from an option.
+
+        Parameters:
+            option (str): option.
+
+        Raises:
+            Exception: if option is not implemented.
+
+        Returns:
+            types.FunctionType: [description]
+        """
+        if option in self.OPTIONS:
+            return self.OPTIONS[option]
+        raise Exception("Option not found.")
 
     def format(self) -> types.FunctionType:
         """

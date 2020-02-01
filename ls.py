@@ -77,7 +77,10 @@ class ListDirectory():
         Returns:
             str: path.
         """
-        for arg in argv:
+        args = argv[1:]
+        if not args or '.' in args or (len(args) == 1 and args[0].startswith('-')):
+            return os.getcwd()
+        for arg in args:
             if arg.startswith('/'):
                 return arg
         raise Exception('Path not found.')
@@ -108,6 +111,8 @@ class ListDirectory():
         Returns:
             str: folder name.
         """
+        if path.endswith('/') and not os.path.exists(path):
+            raise Exception('Folder not found.')
         if os.path.exists(path) and os.path.isdir(path):
             return path
         return ''.join(path.rpartition('/')[:2])
@@ -127,7 +132,7 @@ class ListDirectory():
         files = []
         for file in os.listdir(folder):
             if file.startswith(prefix):
-                files.append(file)
+                files.append(os.path.join(folder, file))
         return files
 
     @staticmethod
@@ -145,7 +150,7 @@ class ListDirectory():
         for filename in filenames:
             file_stat = os.lstat(filename)
             file = {}
-            file['filename'] = filename
+            file['filename'] = filename.split('/')[-1]
             file['mode'] = stat.filemode(file_stat.st_mode)
             file['date'] = str(datetime.fromtimestamp(file_stat.st_ctime).replace(microsecond=0))
             files.append(file)
