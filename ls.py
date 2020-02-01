@@ -1,79 +1,157 @@
 #!/usr/bin/env python
 
-from ls_options import LsOptions
-from datetime import datetime
 import sys
 import os
 import stat
+from datetime import datetime
 
-class ListDirectoryContent():
-    OPTIONS = {
-        '-l': LsOptions.LONG_LISTING,
-    }
+from option import Option
 
-    def __init__(self, argv):
-        self.opts = self.get_command_options(argv)
-        self.folder = self.get_folder_name(argv[1:])
+class ListDirectory():
+    """
+    This is a class to list files based on a path.
 
-    def get_command_options(self, argv):
-        opts = []
-        for arg in argv:
-            if arg in self.OPTIONS.keys():
-                opts.append(self.OPTIONS[arg])
-        return opts
+    Attributes:
+        option (Option): format option.
+        files (list): information from files.
+    """
 
-    def get_folder_name(self, argv):
-        for arg in argv:
-            if arg not in self.OPTIONS.keys() and not arg.startswith('-'):
-                return arg
-        return os.getcwd()
+    def __init__(self, argv: list):
+        """
+        The constructor for ListDirectory class.
+
+        Parameters:
+            argv (list): list of arguments from command line.
+        """
+        path = ListDirectory.path_in(argv)
+        folder = ListDirectory.folder_from(path)
+        prefix = ListDirectory.prefix_from(path)
+        filenames = ListDirectory.files_from(folder, prefix)
+        self.option = ListDirectory.option_in(argv)
+        self.files = ListDirectory.info_from(filenames)
 
     def display_files(self):
-        _, folder = self.prefix_folder()
-        if not os.path.exists(folder):
-            print("ls: cannot access directory")
-        else:
-            print(self.get_displayable_files(), end='')
+        """
+        Method that display files.
+        """
+        for file in self.files_list():
+            print(file)
 
-    def get_displayable_files(self):
-        prefix, folder = self.prefix_folder()
-        info = self.options_info(folder)
-        display = ''
+    def files_list(self):
+        """
+        Create a generator with files information.
+
+        Yields:
+            dict: file information.
+        """
+        for file in self.files:
+            yield self.option.format()().format(file)
+
+    @staticmethod
+    def option_in(argv: list) -> Option:
+        """
+        Gets an Option based on the string option found on the argv list.
+
+        Parameters:
+            argv (list): list of arguments from command line.
+
+        Returns:
+            Option: object that represents the option selected.
+        """
+        for arg in argv:
+            if arg.startswith('-'):
+                return Option(arg)
+        return Option()
+
+    @staticmethod
+    def path_in(argv: list) -> str:
+        """
+        Gets a path from the argv list.
+
+        Parameters:
+            argv (list): list of arguments from command line.
+
+        Raises:
+            Exception: if not find the path.
+
+        Returns:
+            str: path.
+        """
+        for arg in argv:
+            if arg.startswith('/'):
+                return arg
+        raise Exception('Path not found.')
+
+    @staticmethod
+    def prefix_from(path: str) -> str:
+        """
+        Gets the filename prefix from a path.
+
+        Parameters:
+            path (str): path.
+
+        Returns:
+            str: prefix.
+        """
+        if os.path.exists(path) and os.path.isdir(path):
+            return ""
+        return path.split('/')[-1]
+
+    @staticmethod
+    def folder_from(path: str) -> str:
+        """
+        Gets the folder name from the path.
+
+        Parameters:
+            path (str): path.
+
+        Returns:
+            str: folder name.
+        """
+        if os.path.exists(path) and os.path.isdir(path):
+            return path
+        return ''.join(path.rpartition('/')[:2])
+
+    @staticmethod
+    def files_from(folder: str, prefix: str) -> list:
+        """
+        Gets filenames list from folder and prefix.
+
+        Parameters:
+            folder (str): folder name.
+            prefix (str): filename prefix.
+
+        Returns:
+            list: list of filenames.
+        """
+        files = []
         for file in os.listdir(folder):
-            if not self.has_hidden_attribute(file) and file.startswith(prefix):
-                display += ''.join(i + ' ' for i in info[file]) + file + '\n'
-        return display
+            if file.startswith(prefix):
+                files.append(file)
+        return files
 
-    def has_hidden_attribute(self, file):
-        return file.startswith('.')
+    @staticmethod
+    def info_from(filenames: list) -> list:
+        """
+        Gets information from each file.
 
-    def prefix_folder(self):
-        if os.path.exists(self.folder):
-            return "", self.folder
-        split_folder = self.folder.split('/')
-        folder = '/'.join(_ for _ in split_folder[:-1]) + '/'
-        prefix = split_folder[-1]
-        return prefix, folder
+        Parameters:
+            filenames (list): filenames
 
-    def options_info(self, folder):
-        info = dict()
-        for file in os.listdir(folder):
-            curr_file = os.path.join(folder, file)
-            info[file] = []
-            for opt in self.opts:
-                if opt == LsOptions.LONG_LISTING:
-                    info[file].append(self.mode_info(curr_file))
-                    info[file].append(self.creation_time(curr_file))
-        return info
+        Returns:
+            list: information from each file.
+        """
+        files = []
+        for filename in filenames:
+            file_stat = os.lstat(filename)
+            file = {}
+            file['filename'] = filename
+            file['mode'] = stat.filemode(file_stat.st_mode)
+            file['date'] = str(datetime.fromtimestamp(file_stat.st_ctime).replace(microsecond=0))
+            files.append(file)
+        return files
 
-    def creation_time(self, file):
-        file_info = os.lstat(file)
-        return str(datetime.fromtimestamp(file_info.st_ctime).replace(microsecond=0))
-    
-    def mode_info(self, file):
-        file_info = os.lstat(file)
-        return stat.filemode(file_info.st_mode)
 
 if __name__ == '__main__':
-    ls = ListDirectoryContent(sys.argv)
-    ls.display_files()
+    command = ListDirectory(sys.argv)
+    command.display_files()
